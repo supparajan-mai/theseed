@@ -1,24 +1,22 @@
-# THE SEED 🌱
+# THE SEED v3 Clean
 
-Living Action Plan App — ปลูกเป้าหมายให้โตด้วยการลงมือทำทีละวัน
+เวอร์ชันแก้ไขตาม feedback:
+- ไม่มี mock data เริ่มต้น
+- เปิดครั้งแรกเข้าหน้าเลือกตัวการ์ตูนก่อน
+- ใช้ storage key ใหม่ `the-seed-v3-clean` เพื่อไม่ดึงข้อมูล demo เก่าจาก deploy เดิม
+- ใช้ asset แบบ CSS/SVG-style โปร่งใส ไม่มีภาพตัดติดพื้นขาวโปะบนสวน
+- Home ว่างจนกว่าผู้ใช้จะปลูกความฝันเอง
+- รองรับ Plant Wizard, Custom frequency, Drag pot, Task checklist, Watering animation, Gallery, Export/Import JSON
 
-## Deploy on Netlify
-1. Upload this folder to GitHub
-2. Connect the repo to Netlify
-3. Build command: `npm run build`
-4. Publish directory: `dist`
+## Deploy Netlify
+1. แตกไฟล์ zip
+2. Push ขึ้น GitHub
+3. Netlify: New site from Git
+4. Build command: `npm run build`
+5. Publish directory: `dist`
 
-## Local development
+## Local dev
 ```bash
 npm install
 npm run dev
 ```
-
-## Included
-- React + Vite
-- Framer Motion
-- LocalStorage only
-- Export / Import JSON
-- Avatar selection 6 characters
-- Home garden, task view, watering animation, achievement gallery
-- Favicon 192x192 and 512x512
