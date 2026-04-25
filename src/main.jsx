@@ -1,232 +1,372 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { Download, Upload, Plus, Leaf, Sprout, CheckCircle2, X, RotateCcw, Droplets, Sparkles } from 'lucide-react';
-import './styles.css';
 
-const GROWTH = { Daily: 1, Weekly: 5, Monthly: 20, Quarterly: 50, Custom: 3 };
-const DEFAULT_POSITIONS = [
-  { x: 24, y: 430 }, { x: 172, y: 405 }, { x: 318, y: 430 }, { x: 92, y: 550 }, { x: 250, y: 555 }
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, ChevronLeft, Download, GalleryHorizontal, Home, Import, Leaf, Plus, Sprout, Store, UserRound, X, Droplets } from "lucide-react";
+import "./styles.css";
+
+const A="/assets/";
+const avatars=[
+  {id:"female-1",label:"นักปลูกฝัน",src:A+"avatars/female-1.png"},
+  {id:"female-2",label:"สายหวาน",src:A+"avatars/female-2.png"},
+  {id:"female-3",label:"อบอุ่น",src:A+"avatars/female-3.png"},
+  {id:"male-1",label:"สายเท่",src:A+"avatars/male-1.png"},
+  {id:"male-2",label:"นักวางแผน",src:A+"avatars/male-2.png"},
+  {id:"male-3",label:"สายชิล",src:A+"avatars/male-3.png"},
 ];
 
-const avatars = [
-  { id: 'girl-garden', gender: 'ผู้หญิง', name: 'ไหมสวนฝัน', hair: 'bun', clothes: '#566b45', accent: '#f6c8a8' },
-  { id: 'girl-book', gender: 'ผู้หญิง', name: 'น้องนักอ่าน', hair: 'long', clothes: '#8f6f4e', accent: '#eecfb6' },
-  { id: 'girl-sun', gender: 'ผู้หญิง', name: 'สาวแดดอุ่น', hair: 'wave', clothes: '#c89057', accent: '#f3d17e' },
-  { id: 'boy-calm', gender: 'ผู้ชาย', name: 'คุณใจนิ่ง', hair: 'short', clothes: '#344150', accent: '#b7c6d9' },
-  { id: 'boy-plan', gender: 'ผู้ชาย', name: 'นักวางแผน', hair: 'soft', clothes: '#6d7256', accent: '#e8d5b5' },
-  { id: 'boy-forest', gender: 'ผู้ชาย', name: 'เพื่อนในป่า', hair: 'curl', clothes: '#536b47', accent: '#d1b08a' }
+const templates=[
+  {id:"health", icon:"💪", name:"สุขภาพ", tasks:[
+    ["ดื่มน้ำ 2 ลิตร","Daily"],["เดิน 20 นาที","Daily"],["ชั่งน้ำหนัก","Weekly"],["สรุปสุขภาพประจำเดือน","Monthly"]
+  ]},
+  {id:"money", icon:"🪙", name:"การเงิน", tasks:[
+    ["บันทึกรายรับรายจ่าย","Daily"],["ออมเงิน 100 บาท","Weekly"],["ทบทวนงบรายเดือน","Monthly"]
+  ]},
+  {id:"learn", icon:"📚", name:"การเรียนรู้", tasks:[
+    ["อ่าน/เรียน 30 นาที","Daily"],["สรุปสิ่งที่เรียน","Weekly"],["ทำโปรเจกต์ย่อย","Monthly"]
+  ]},
+  {id:"biz", icon:"💼", name:"ธุรกิจ / อาชีพ", tasks:[
+    ["ทำงานหลัก 1 ชิ้น","Daily"],["โพสต์คอนเทนต์","Weekly"],["ดูตัวเลขยอดขาย","Monthly"]
+  ]},
 ];
 
-const templates = [
-  { id: 'health', label: 'สุขภาพ', emoji: '💪', tasks: ['เดิน 15 นาที', 'ดื่มน้ำ 2 ลิตร', 'นอนก่อน 5 ทุ่ม'] },
-  { id: 'money', label: 'การเงิน', emoji: '🪙', tasks: ['บันทึกรายจ่าย', 'ออมเงิน 100 บาท', 'ทบทวนเป้าหมายรายสัปดาห์'] },
-  { id: 'learning', label: 'การเรียนรู้', emoji: '📚', tasks: ['อ่านหนังสือ 20 หน้า', 'เรียนออนไลน์ 30 นาที', 'จดสรุป 1 หน้า'] },
-  { id: 'business', label: 'ธุรกิจ / อาชีพ', emoji: '💼', tasks: ['ทำคอนเทนต์ 1 ชิ้น', 'ติดต่อลูกค้า', 'สรุปยอดประจำสัปดาห์'] }
-];
+const growthPoint={Daily:1, Weekly:5, Monthly:20, Quarterly:50, Custom:3};
+const frequencyLabels={Daily:"รายวัน",Weekly:"รายสัปดาห์",Monthly:"รายเดือน",Quarterly:"รายไตรมาส",Custom:"กำหนดเอง"};
 
-function uid() { return Math.random().toString(36).slice(2, 10); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
 
-function Avatar({ avatar, size = 160, watering = false }) {
-  const hairShape = {
-    bun: <><circle cx="105" cy="35" r="24" fill="#6b452d"/><circle cx="112" cy="30" r="8" fill="#92a66a"/></>,
-    long: <path d="M45 75 C35 130 48 158 80 164 C120 160 132 128 119 74 Z" fill="#3f332b"/> ,
-    wave: <path d="M38 82 C26 136 56 166 82 154 C118 174 139 130 119 75 Z" fill="#7a4a2f"/> ,
-    short: <path d="M42 70 C50 36 112 32 124 70 C103 54 70 54 42 70Z" fill="#24262a"/> ,
-    soft: <path d="M40 70 C55 32 112 38 124 74 C103 50 70 56 40 70Z" fill="#4d3122"/> ,
-    curl: <path d="M42 68 C44 35 111 35 124 72 C108 60 93 58 78 65 C66 56 52 58 42 68Z" fill="#735135"/>
-  }[avatar.hair];
-  return (
-    <svg viewBox="0 0 160 190" width={size} height={size * 1.18} className="avatar-svg">
-      <ellipse cx="80" cy="178" rx="42" ry="9" fill="rgba(70,50,30,.16)" />
-      {hairShape}
-      <circle cx="80" cy="76" r="39" fill="#ffdcbf" stroke="#8b6248" strokeWidth="2"/>
-      <path d="M43 70 C50 28 113 25 124 70 C92 53 68 56 43 70Z" fill={avatar.hair === 'short' ? '#25272b' : avatar.hair === 'long' ? '#3f332b' : avatar.hair === 'wave' ? '#7a4a2f' : avatar.hair === 'curl' ? '#735135' : '#6b452d'} />
-      <circle cx="64" cy="78" r="6" fill="#3f2f28"/><circle cx="96" cy="78" r="6" fill="#3f2f28"/>
-      <circle cx="53" cy="88" r="6" fill="#f6a995" opacity=".55"/><circle cx="107" cy="88" r="6" fill="#f6a995" opacity=".55"/>
-      <path d="M70 96 Q80 104 91 96" fill="none" stroke="#6b4a3a" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M52 117 Q80 101 108 117 L116 168 Q80 181 44 168Z" fill={avatar.clothes}/>
-      <path d="M60 118 L48 153" stroke="#f6ead8" strokeWidth="12" strokeLinecap="round"/>
-      <path d="M100 118 L112 153" stroke="#f6ead8" strokeWidth="12" strokeLinecap="round"/>
-      <path d="M64 170 L61 185 M96 170 L99 185" stroke="#4f3528" strokeWidth="8" strokeLinecap="round"/>
-      {watering && <g className="can-group"><ellipse cx="118" cy="138" rx="22" ry="15" fill="#b8bec0" stroke="#6f7778" strokeWidth="3"/><path d="M136 133 L154 126" stroke="#6f7778" strokeWidth="8" strokeLinecap="round"/><circle cx="157" cy="125" r="7" fill="#9ea6a8"/><path d="M112 122 Q135 111 139 135" fill="none" stroke="#6f7778" strokeWidth="5"/><path d="M149 134 C157 146 156 160 147 170" stroke="#6bbbd2" strokeWidth="3" strokeDasharray="4 6" strokeLinecap="round"/></g>}
-      <circle cx="80" cy="20" r="8" fill={avatar.accent} opacity=".7"/>
-    </svg>
-  );
+const seedData = {
+  avatar:"female-1",
+  activeTab:"home",
+  water:1200,
+  level:12,
+  dreams:[
+    {
+      id:"demo-health",
+      name:"สุขภาพแข็งแรง",
+      template:"health",
+      growth:45,
+      potential:100,
+      x:42,y:68,
+      plantedAt:today(),
+      tasks:[
+        {id:"t1",title:"เดิน 20 นาที",freq:"Daily",done:false},
+        {id:"t2",title:"ดื่มน้ำ 2 ลิตร",freq:"Daily",done:true,lastDone:today()},
+        {id:"t3",title:"ออกกำลังกาย 3 วัน",freq:"Weekly",done:false},
+      ]
+    },
+    {
+      id:"demo-money",
+      name:"เก็บเงิน 100,000 บาท",
+      template:"money",
+      growth:25,
+      potential:80,
+      x:50,y:71,
+      plantedAt:today(),
+      tasks:[
+        {id:"t4",title:"บันทึกรายรับรายจ่าย",freq:"Daily",done:false},
+        {id:"t5",title:"ออมเงิน 500 บาท",freq:"Weekly",done:false},
+        {id:"t6",title:"สรุปการเงินรายเดือน",freq:"Monthly",done:false},
+      ]
+    },
+    {
+      id:"demo-learn",
+      name:"เรียนภาษาอังกฤษ",
+      template:"learn",
+      growth:15,
+      potential:70,
+      x:58,y:69,
+      plantedAt:today(),
+      tasks:[
+        {id:"t7",title:"ฝึกศัพท์ 10 คำ",freq:"Daily",done:false},
+        {id:"t8",title:"ฟัง podcast",freq:"Weekly",done:false},
+      ]
+    }
+  ],
+  completed:[
+    {id:"c1",name:"อ่านหนังสือ 12 เล่ม",completedAt:"2026-04-01",daysUsed:88,skin:"bloom",x:22},
+    {id:"c2",name:"ทำเว็บไซต์พอร์ต",completedAt:"2026-04-12",daysUsed:34,skin:"bloom",x:44},
+    {id:"c3",name:"เก็บเงินก้อนแรก",completedAt:"2026-04-20",daysUsed:120,skin:"bloom",x:66}
+  ]
+};
+
+function loadState(){
+  try { return JSON.parse(localStorage.getItem("the-seed-state")) || seedData; } catch { return seedData; }
+}
+function saveState(s){ localStorage.setItem("the-seed-state", JSON.stringify(s)); }
+
+function plantStage(growth){
+  if(growth<21) return 0;
+  if(growth<51) return 1;
+  if(growth<81) return 2;
+  return 3;
 }
 
-function Pot({ tree, selected, onPointerDown, onClick }) {
-  const controls = useDragControls();
-  const stage = tree.growth < 21 ? 'seed' : tree.growth < 51 ? 'sprout' : tree.growth < 81 ? 'branch' : 'bloom';
-  const progress = Math.min(100, tree.growth);
-  return (
-    <motion.div
-      className={`pot-card ${selected ? 'selected' : ''} ${tree.wilted ? 'wilted' : ''}`}
-      drag
-      dragMomentum={false}
-      dragControls={controls}
-      dragListener={false}
-      initial={{ x: tree.position.x, y: tree.position.y, scale: .8, opacity: 0 }}
-      animate={{ x: tree.position.x, y: tree.position.y, scale: 1, opacity: 1 }}
-      whileDrag={{ scale: 1.06, zIndex: 20 }}
-      onDragEnd={(_, info) => onPointerDown(tree.id, info.point)}
-      onPointerDown={(e) => { if (e.pointerType !== 'mouse') controls.start(e); }}
-      onMouseDown={(e) => { if (e.detail > 0) controls.start(e); }}
-      onClick={(e) => { e.stopPropagation(); onClick(tree); }}
-      title="แตะเพื่อทำภารกิจ / กดค้างลากเพื่อย้าย"
-    >
-      <div className={`tree ${stage}`}>
-        <span className="sparkle-dot">✦</span>
-        <div className="stem"></div>
-        <div className="leaf l1"></div><div className="leaf l2"></div><div className="leaf l3"></div><div className="leaf l4"></div>
-        <div className="fruit f1"></div><div className="fruit f2"></div>
-        <div className="seed-dot"></div>
-      </div>
-      <div className="pot-shape"><div className="soil"></div></div>
-      <div className="tag">{tree.goal}</div>
-      <div className="mini-progress"><span style={{ width: `${progress}%` }} /></div>
-      <small>{progress}%</small>
-    </motion.div>
-  );
+function Header({state,setState,onAvatar}){
+  return <div className="topbar">
+    <button className="profile-pill" onClick={onAvatar}>
+      <img src={avatars.find(a=>a.id===state.avatar)?.src} />
+      <span><b>Level {state.level}</b><small><Droplets size={13}/> {state.water}</small></span>
+    </button>
+    <div className="brand"><Leaf size={16}/> THE SEED</div>
+    <button className="round ghost" onClick={()=>setState(s=>({...s,activeTab:"settings"}))}>⚙️</button>
+  </div>
 }
 
-function Wizard({ onClose, onCreate }) {
-  const [step, setStep] = useState(1);
-  const [goal, setGoal] = useState('');
-  const [template, setTemplate] = useState(templates[0]);
-  const [tasks, setTasks] = useState([]);
-  const [taskName, setTaskName] = useState('');
-  const [freq, setFreq] = useState('Daily');
-  const [customDays, setCustomDays] = useState(3);
-
-  useEffect(() => {
-    if (step === 2 && tasks.length === 0) setTasks(template.tasks.map(t => ({ id: uid(), title: t, frequency: 'Daily', customDays: null, done: false, lastDone: null })));
-  }, [step]);
-
-  const potential = Math.min(100, tasks.reduce((sum, t) => sum + (t.frequency === 'Custom' ? Number(t.customDays || 3) : GROWTH[t.frequency]), 0));
-  const addTask = () => {
-    if (!taskName.trim()) return;
-    setTasks([...tasks, { id: uid(), title: taskName.trim(), frequency: freq, customDays: freq === 'Custom' ? customDays : null, done: false, lastDone: null }]);
-    setTaskName('');
+function Garden({state,setState,onPlant,onOpenDream}){
+  const dragRef=useRef(null);
+  const [dragId,setDragId]=useState(null);
+  const updatePos=(id,e)=>{
+    const r=dragRef.current.getBoundingClientRect();
+    const x=clamp(((e.clientX-r.left)/r.width)*100,15,85);
+    const y=clamp(((e.clientY-r.top)/r.height)*100,35,77);
+    setState(s=>({...s,dreams:s.dreams.map(d=>d.id===id?{...d,x,y}:d)}));
   };
-  const create = () => {
-    const idx = Number(localStorage.getItem('seed-count') || 0);
-    localStorage.setItem('seed-count', String(idx + 1));
-    onCreate({
-      id: uid(), goal: goal.trim() || 'ความฝันใหม่', templateId: template.id, tasks,
-      potentialGrowth: potential, growth: 0, skinId: 'classic-pot', wilted: false,
-      position: DEFAULT_POSITIONS[idx % DEFAULT_POSITIONS.length], createdAt: new Date().toISOString()
-    });
+  return <main className="screen garden-screen" ref={dragRef}>
+    <Background />
+    <Header state={state} setState={setState} onAvatar={()=>setState(s=>({...s,activeTab:"avatar"}))}/>
+    <motion.img className="hero-avatar" src={avatars.find(a=>a.id===state.avatar)?.src}
+      animate={{y:[0,-5,0]}} transition={{duration:3,repeat:Infinity,ease:"easeInOut"}} />
+    <img className="decor bench" src={A+"bench.png"}/>
+    <img className="decor bird" src={A+"bird.png"}/>
+    <div className="pots-layer">
+      {state.dreams.map(d=><motion.button
+        key={d.id}
+        className={"dream-pot "+(d.growth<12?"wilt":"")}
+        style={{left:`${d.x}%`, top:`${d.y}%`}}
+        onPointerDown={(e)=>{setDragId(d.id); e.currentTarget.setPointerCapture?.(e.pointerId)}}
+        onPointerMove={(e)=>{ if(dragId===d.id) updatePos(d.id,e);}}
+        onPointerUp={(e)=>{ setDragId(null); }}
+        onClick={(e)=>{ if(!dragId) onOpenDream(d.id); }}
+        whileTap={{scale:1.05}}
+      >
+        <img src={A+`plants/stage-${plantStage(d.growth)}.png`} />
+        <span>{d.name}</span>
+        <small>{d.growth}%</small>
+      </motion.button>)}
+      <button className="add-pot" onClick={onPlant}><Plus /></button>
+    </div>
+    <button className="plant-cta" onClick={onPlant}><Sprout size={23}/> เพาะเมล็ดพันธุ์ความฝัน</button>
+  </main>
+}
+
+function Background(){
+  return <>
+    <div className="bg-layer bg-garden"></div>
+    <div className="sun-glow"></div>
+    <div className="floating floating-one">✨</div>
+    <div className="floating floating-two">🍃</div>
+  </>
+}
+
+function AvatarPicker({state,setState}){
+  return <main className="screen plain-screen">
+    <SubHeader title="เลือกตัวแทนของคุณ" onBack={()=>setState(s=>({...s,activeTab:"home"}))}/>
+    <div className="avatar-grid">
+      {avatars.map(a=><button key={a.id} className={"avatar-card "+(state.avatar===a.id?"selected":"")} onClick={()=>setState(s=>({...s,avatar:a.id,activeTab:"home"}))}>
+        <img src={a.src}/><b>{a.label}</b>{state.avatar===a.id && <Check/>}
+      </button>)}
+    </div>
+  </main>
+}
+
+function PlantWizard({state,setState}){
+  const [step,setStep]=useState(1);
+  const [name,setName]=useState("");
+  const [template,setTemplate]=useState("health");
+  const [tasks,setTasks]=useState([]);
+  const [newTask,setNewTask]=useState("");
+  const [freq,setFreq]=useState("Daily");
+  const [customDays,setCustomDays]=useState(3);
+  useEffect(()=>{
+    const t=templates.find(t=>t.id===template);
+    setTasks(t.tasks.map(([title,freq])=>({id:uid(),title,freq,done:false,customDays:null})));
+  },[template]);
+  const potential=clamp(tasks.reduce((sum,t)=>sum+(growthPoint[t.freq]||customDays),0),0,100);
+  const addTask=()=>{ if(!newTask.trim()) return; setTasks([...tasks,{id:uid(),title:newTask.trim(),freq,done:false,customDays:freq==="Custom"?customDays:null}]); setNewTask("");};
+  const plant=()=>{
+    if(!name.trim()) return;
+    const dream={id:uid(),name:name.trim(),template,growth:0,potential,x:45+Math.random()*15,y:64+Math.random()*8,plantedAt:today(),tasks};
+    setState(s=>({...s,dreams:[...s.dreams,dream],activeTab:"home"}));
   };
-  return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-    <motion.div className="wizard" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
-      <button className="icon-close" onClick={onClose}><X size={20}/></button>
-      <div className="steps"><span className={step>=1?'on':''}>1</span><span className={step>=2?'on':''}>2</span><span className={step>=3?'on':''}>3</span></div>
-      {step === 1 && <section>
-        <h2>เพาะเมล็ดพันธุ์ความฝัน</h2>
+  return <main className="screen plain-screen">
+    <SubHeader title="เพาะเมล็ดพันธุ์ความฝัน" onBack={()=>setState(s=>({...s,activeTab:"home"}))}/>
+    <div className="wizard">
+      <div className="steps"><span className={step>=1?"on":""}>1</span><span className={step>=2?"on":""}>2</span><span className={step>=3?"on":""}>3</span></div>
+      {step===1 && <section className="card">
         <label>ชื่อความฝันของคุณ</label>
-        <input value={goal} onChange={e=>setGoal(e.target.value)} placeholder="เช่น เก็บเงิน 100,000 บาท" />
-        <label>เลือกแพ็กเมล็ดพันธุ์</label>
-        <div className="template-grid">{templates.map(t => <button key={t.id} onClick={()=>setTemplate(t)} className={template.id===t.id?'active':''}><b>{t.emoji}</b>{t.label}</button>)}</div>
-        <button className="primary wide" onClick={()=>setStep(2)}>ถัดไป</button>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="เช่น เก็บเงิน 100,000 บาท"/>
+        <label>เลือกเทมเพลต</label>
+        <div className="template-grid">{templates.map(t=><button className={template===t.id?"selected":""} onClick={()=>setTemplate(t.id)} key={t.id}><span>{t.icon}</span>{t.name}</button>)}</div>
+        <button className="primary" onClick={()=>setStep(2)}>ถัดไป</button>
       </section>}
-      {step === 2 && <section>
-        <h2>วางแผนกิจกรรมย่อย</h2>
-        <div className="task-adder"><input value={taskName} onChange={e=>setTaskName(e.target.value)} placeholder="เพิ่มกิจกรรมย่อย"/><select value={freq} onChange={e=>setFreq(e.target.value)}>{Object.keys(GROWTH).map(f=><option key={f}>{f}</option>)}</select>{freq==='Custom'&&<input type="number" value={customDays} min="1" max="30" onChange={e=>setCustomDays(e.target.value)} /> }<button onClick={addTask}><Plus size={16}/></button></div>
-        <div className="task-list small">{tasks.map(t=><div key={t.id}><span>{t.title}</span><em>{t.frequency}{t.frequency==='Custom'?` / ทุก ${t.customDays} วัน`:''}</em><button onClick={()=>setTasks(tasks.filter(x=>x.id!==t.id))}>×</button></div>)}</div>
-        <div className="gauge"><div style={{'--p': `${potential * 3.6}deg`}}><b>{potential}%</b></div><p>ศักยภาพการเติบโตของแผนนี้</p></div>
-        <button className="primary wide" onClick={()=>setStep(3)}>ถัดไป</button>
+      {step===2 && <section className="card">
+        <label>กิจกรรมย่อย</label>
+        {tasks.map((t,i)=><div className="task-row mini" key={t.id}>
+          <input value={t.title} onChange={e=>setTasks(tasks.map(x=>x.id===t.id?{...x,title:e.target.value}:x))}/>
+          <select value={t.freq} onChange={e=>setTasks(tasks.map(x=>x.id===t.id?{...x,freq:e.target.value}:x))}>{Object.keys(frequencyLabels).map(f=><option key={f}>{f}</option>)}</select>
+          <button onClick={()=>setTasks(tasks.filter(x=>x.id!==t.id))}>×</button>
+        </div>)}
+        <div className="add-task">
+          <input value={newTask} onChange={e=>setNewTask(e.target.value)} placeholder="เพิ่มกิจกรรม..."/>
+          <select value={freq} onChange={e=>setFreq(e.target.value)}>{Object.keys(frequencyLabels).map(f=><option key={f}>{f}</option>)}</select>
+          {freq==="Custom" && <input type="number" min="1" value={customDays} onChange={e=>setCustomDays(+e.target.value||1)} />}
+          <button onClick={addTask}><Plus size={16}/></button>
+        </div>
+        <div className="gauge"><div style={{"--p":potential}}><b>{potential}%</b></div><span>ศักยภาพการเติบโตของแผนนี้</span></div>
+        <button className="primary" onClick={()=>setStep(3)}>ถัดไป</button>
       </section>}
-      {step === 3 && <section>
-        <h2>พร้อมปลูกแล้ว!</h2>
-        <div className="summary-card"><Sprout/> <p><b>{goal || 'ความฝันใหม่'}</b><br/>กิจกรรมทั้งหมด {tasks.length} รายการ<br/>ศักยภาพการเติบโต {potential}%</p></div>
-        <button className="primary wide" onClick={create}>ปลูกเลย! 🌱</button>
+      {step===3 && <section className="card summary-card">
+        <img src={A+"pot-planted.png"}/>
+        <h2>พร้อมปลูกความฝันแล้ว</h2>
+        <p>กิจกรรมทั้งหมด {tasks.length} รายการ • ศักยภาพ {potential}%</p>
+        <button className="primary" onClick={plant}>ปลูกเลย! 🌱</button>
       </section>}
-    </motion.div>
-  </motion.div>;
+    </div>
+  </main>
 }
 
-function TaskModal({ tree, onClose, onWater }) {
-  return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-    <motion.div className="task-modal" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
-      <button className="icon-close" onClick={onClose}><X size={20}/></button>
-      <div className="plant-preview"><Pot tree={{...tree, position:{x:0,y:0}}} selected={false} onPointerDown={()=>{}} onClick={()=>{}} /></div>
-      <h2>{tree.goal}</h2>
-      <div className="main-progress"><span style={{width:`${tree.growth}%`}}/></div>
-      <p className="muted">เติบโตแล้ว {tree.growth}% / ศักยภาพ {tree.potentialGrowth}%</p>
-      <div className="task-list">{tree.tasks.map(task => <button key={task.id} className={task.done?'done':''} onClick={()=>onWater(tree.id, task.id)}><CheckCircle2 size={18}/><span>{task.title}</span><em>{task.frequency}{task.frequency==='Custom'?` / ${task.customDays} วัน`:''}</em></button>)}</div>
-    </motion.div>
-  </motion.div>;
-}
-
-function WateringOverlay({ avatar, onDone, growthGain }) {
-  useEffect(() => { const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, []);
-  return <motion.div className="watering-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-    <motion.div className="watering-scene" initial={{ scale: .88 }} animate={{ scale: 1 }}>
-      <motion.div animate={{ rotate: [0, -4, 0], y: [0, -8, 0] }} transition={{ duration: 1.2, repeat: 1 }}><Avatar avatar={avatar} size={210} watering /></motion.div>
-      <div className="animated-pot"><div className="tree sprout branch bloom"><span className="sparkle-dot">✦</span><div className="stem"></div><div className="leaf l1"></div><div className="leaf l2"></div><div className="leaf l3"></div><div className="leaf l4"></div><div className="fruit f1"></div><div className="fruit f2"></div></div><div className="pot-shape"><div className="soil"></div></div></div>
-      <div className="rain-drops">{Array.from({length:18}).map((_,i)=><i key={i} style={{left:`${47 + (i%6)*4}%`, animationDelay:`${i*.08}s`}} />)}</div>
-      <motion.div className="gain" initial={{ y: 20, opacity: 0 }} animate={{ y: -10, opacity: 1 }} transition={{ delay: 1.2 }}>+{growthGain}% ✨</motion.div>
-      <p>รดน้ำให้ต้นไม้ของคุณ!</p>
-    </motion.div>
-  </motion.div>;
-}
-
-function App() {
-  const [avatarId, setAvatarId] = useState(localStorage.getItem('seed-avatar') || 'girl-garden');
-  const [showAvatar, setShowAvatar] = useState(!localStorage.getItem('seed-avatar'));
-  const [trees, setTrees] = useState(() => JSON.parse(localStorage.getItem('seed-trees') || '[]'));
-  const [wizard, setWizard] = useState(false);
-  const [activeTree, setActiveTree] = useState(null);
-  const [watering, setWatering] = useState(null);
-  const fileRef = useRef(null);
-  const avatar = avatars.find(a=>a.id===avatarId) || avatars[0];
-
-  useEffect(()=>localStorage.setItem('seed-avatar', avatarId), [avatarId]);
-  useEffect(()=>localStorage.setItem('seed-trees', JSON.stringify(trees)), [trees]);
-
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ avatarId, trees }, null, 2)], { type:'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'the-seed-backup.json'; a.click();
+function TaskView({state,setState,dreamId}){
+  const dream=state.dreams.find(d=>d.id===dreamId) || state.dreams[0];
+  const [watering,setWatering]=useState(false);
+  if(!dream) return null;
+  const toggleTask=(taskId)=>{
+    let grew=0;
+    setState(s=>({...s,dreams:s.dreams.map(d=>{
+      if(d.id!==dream.id) return d;
+      const tasks=d.tasks.map(t=>{
+        if(t.id!==taskId) return t;
+        const done=!t.done;
+        if(done) grew=growthPoint[t.freq]||t.customDays||3;
+        return {...t,done,lastDone:done?today():t.lastDone};
+      });
+      return {...d,tasks,growth:clamp(d.growth+grew,0,100)};
+    })}));
+    if(grew>0) setWatering(true);
   };
-  const importJson = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const data = JSON.parse(await file.text());
-    setTrees(data.trees || []); if (data.avatarId) setAvatarId(data.avatarId);
-  };
-  const createTree = (tree) => { setTrees([...trees, tree]); setWizard(false); };
-  const updatePosition = (id, point) => {
-    const garden = document.querySelector('.garden-stage').getBoundingClientRect();
-    setTrees(ts => ts.map(t => t.id===id ? {...t, position:{ x: Math.max(6, Math.min(point.x - garden.left - 60, garden.width - 130)), y: Math.max(180, Math.min(point.y - garden.top - 60, garden.height - 140)) }} : t));
-  };
-  const waterTask = (treeId, taskId) => {
-    let gain = 1;
-    setTrees(ts => ts.map(t => {
-      if (t.id !== treeId) return t;
-      const task = t.tasks.find(x=>x.id===taskId); gain = task.frequency === 'Custom' ? Number(task.customDays || 3) : GROWTH[task.frequency];
-      return { ...t, growth: Math.min(100, t.growth + gain), wilted: false, tasks: t.tasks.map(x => x.id===taskId ? {...x, done:true, lastDone: new Date().toISOString()} : x) };
+  const completeDream=()=>{
+    setState(s=>({
+      ...s,
+      dreams:s.dreams.filter(d=>d.id!==dream.id),
+      completed:[...s.completed,{id:dream.id,name:dream.name,completedAt:today(),daysUsed:Math.max(1,Math.floor((Date.now()-new Date(dream.plantedAt).getTime())/86400000)),skin:"bloom",x:20+s.completed.length*22}]
     }));
-    setWatering({ gain });
   };
-  const resetDemo = () => { localStorage.clear(); setTrees([]); setAvatarId('girl-garden'); setShowAvatar(true); };
-
-  return <div className="app">
-    <main className="phone-shell">
-      <section className="garden-stage" onClick={()=>setActiveTree(null)}>
-        <div className="sunbeams"/><div className="big-tree"><div/><span/><i/></div><div className="bench"></div><div className="bird b1">🐦</div><div className="bird b2">🐤</div><div className="pond"></div>
-        <header className="top-card"><div><h1>THE SEED</h1><p>Plant your dreams, grow your future</p></div><button onClick={()=>setShowAvatar(true)}><Avatar avatar={avatar} size={42}/></button></header>
-        <div className="player"><Avatar avatar={avatar} size={130}/></div>
-        {trees.length === 0 && <motion.div className="empty-hint" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}}>สวนยังว่างอยู่ มาเพาะเมล็ดพันธุ์ความฝันกัน 🌱</motion.div>}
-        {trees.map(t => <Pot key={t.id} tree={t} selected={activeTree?.id===t.id} onPointerDown={updatePosition} onClick={setActiveTree}/>)}
-        <button className="plant-button" onClick={(e)=>{e.stopPropagation();setWizard(true)}}><Plus size={20}/> เพาะเมล็ดพันธุ์ความฝัน</button>
-      </section>
-      <nav className="bottom-nav"><button><Leaf/>สวนของฉัน</button><button onClick={()=>activeTree && setActiveTree(activeTree)}><CheckCircle2/>ภารกิจ</button><button onClick={exportJson}><Download/>Export</button><button onClick={()=>fileRef.current.click()}><Upload/>Import</button><button onClick={resetDemo}><RotateCcw/>Reset</button><input ref={fileRef} type="file" accept="application/json" onChange={importJson}/></nav>
-    </main>
-    <AnimatePresence>{showAvatar && <motion.div className="modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}><motion.div className="avatar-picker" initial={{y:50,opacity:0}} animate={{y:0,opacity:1}} exit={{y:50,opacity:0}}><h2>🌿 เลือกตัวแทนของคุณ 🌿</h2><div className="avatar-grid">{avatars.map(a=><button key={a.id} className={avatarId===a.id?'active':''} onClick={()=>setAvatarId(a.id)}><Avatar avatar={a} size={112}/><b>{a.name}</b><span>{a.gender}</span></button>)}</div><button className="primary wide" onClick={()=>setShowAvatar(false)}>เริ่มปลูกความฝัน</button></motion.div></motion.div>}</AnimatePresence>
-    <AnimatePresence>{wizard && <Wizard onClose={()=>setWizard(false)} onCreate={createTree}/>}</AnimatePresence>
-    <AnimatePresence>{activeTree && <TaskModal tree={activeTree} onClose={()=>setActiveTree(null)} onWater={waterTask}/>}</AnimatePresence>
-    <AnimatePresence>{watering && <WateringOverlay avatar={avatar} growthGain={watering.gain} onDone={()=>{setWatering(null); setActiveTree(null);}}/>}</AnimatePresence>
-  </div>;
+  return <main className="screen task-screen">
+    <div className="task-bg"></div>
+    <SubHeader title={dream.name} onBack={()=>setState(s=>({...s,activeTab:"home"}))}/>
+    <section className="task-card">
+      <img className="task-pot" src={A+`plants/stage-${plantStage(dream.growth)}.png`}/>
+      <div className="progress-title"><b>{dream.growth}%</b><span>ศักยภาพ {dream.potential}%</span></div>
+      <div className="progress"><i style={{width:`${dream.growth}%`}}></i></div>
+      <h3>ภารกิจย่อย</h3>
+      {dream.tasks.map(t=><label className="check-row" key={t.id}>
+        <input type="checkbox" checked={t.done} onChange={()=>toggleTask(t.id)}/>
+        <span>{t.title}</span>
+        <em>{frequencyLabels[t.freq]}</em>
+      </label>)}
+      {dream.growth>=100 && <button className="success" onClick={completeDream}>สำเร็จความฝัน เก็บเข้าหอเกียรติยศ ✨</button>}
+      <button className="primary" onClick={()=>setWatering(true)}>ดูแลต้นไม้ 🪣</button>
+    </section>
+    <AnimatePresence>{watering && <WateringScene avatar={state.avatar} onDone={()=>setWatering(false)}/>}</AnimatePresence>
+  </main>
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+function WateringScene({avatar,onDone}){
+  const frames=[1,2,3,4,5,6].map(i=>A+`watering/frame-${i}.png`);
+  const [i,setI]=useState(0);
+  useEffect(()=>{
+    if(i<frames.length-1){ const t=setTimeout(()=>setI(i+1),420); return ()=>clearTimeout(t);}
+    const t=setTimeout(onDone,1400); return ()=>clearTimeout(t);
+  },[i]);
+  return <motion.div className="watering-overlay" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+    <div className="watering-card">
+      <motion.img src={frames[i]} key={i} initial={{scale:.96,opacity:.4}} animate={{scale:1,opacity:1}} transition={{duration:.25}} />
+      <motion.div className="plus-growth" initial={{y:15,opacity:0,scale:.8}} animate={{y:0,opacity:1,scale:1}}>+1% ✨</motion.div>
+      <div className="water-progress"><i></i></div>
+    </div>
+  </motion.div>
+}
+
+function Gallery({state,setState}){
+  return <main className="screen gallery-screen">
+    <div className="gallery-bg"></div>
+    <SubHeader title="สวนแห่งความสำเร็จ" onBack={()=>setState(s=>({...s,activeTab:"home"}))}/>
+    <motion.img className="gallery-walker" src={avatars.find(a=>a.id===state.avatar)?.src}
+      animate={{x:[0,7,0],y:[0,-2,0]}} transition={{duration:1.2,repeat:Infinity}}/>
+    <div className="gallery-track">
+      {state.completed.map((c,idx)=><motion.div className="achievement-tree" key={c.id} whileTap={{scale:1.05}}>
+        <img src={A+"plants/stage-3.png"}/>
+        <b>{c.name}</b>
+        <span>สำเร็จ {c.completedAt}</span>
+        <small>ใช้เวลา {c.daysUsed} วัน</small>
+      </motion.div>)}
+      {state.completed.length===0 && <div className="empty-gallery">ยังไม่มีต้นไม้แห่งความสำเร็จ<br/>ค่อยๆ ปลูกไป เดี๋ยวสวนนี้จะสวยเอง 🌱</div>}
+    </div>
+  </main>
+}
+
+function Settings({state,setState}){
+  const file=useRef(null);
+  const exportData=()=>{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="the-seed-backup.json"; a.click();
+  };
+  const importData=(e)=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    const reader=new FileReader();
+    reader.onload=()=>{ try{ setState(JSON.parse(reader.result)); }catch{ alert("ไฟล์ JSON ไม่ถูกต้อง"); }};
+    reader.readAsText(f);
+  };
+  return <main className="screen plain-screen">
+    <SubHeader title="ตั้งค่า" onBack={()=>setState(s=>({...s,activeTab:"home"}))}/>
+    <section className="card">
+      <h2>ข้อมูลของฉัน</h2>
+      <p>ข้อมูลทั้งหมดเก็บในเครื่องนี้ด้วย LocalStorage ไม่มี Server/Database</p>
+      <button className="primary" onClick={exportData}><Download size={18}/> Export JSON</button>
+      <button className="soft" onClick={()=>file.current.click()}><Import size={18}/> Import JSON</button>
+      <input ref={file} type="file" accept=".json,application/json" hidden onChange={importData}/>
+      <button className="danger" onClick={()=>{localStorage.removeItem("the-seed-state"); location.reload();}}>รีเซ็ตเดโม</button>
+    </section>
+  </main>
+}
+
+function SubHeader({title,onBack}){
+  return <div className="subheader"><button className="round" onClick={onBack}><ChevronLeft/></button><b>{title}</b><span></span></div>
+}
+
+function BottomNav({state,setState}){
+  const items=[
+    ["home",Home,"สวนของฉัน"],["tasks",Check,"ภารกิจ"],["gallery",GalleryHorizontal,"แกลเลอรี่"],["store",Store,"ร้านค้า"],["avatar",UserRound,"โปรไฟล์"]
+  ];
+  return <nav className="bottom-nav">
+    {items.map(([id,Icon,label])=><button key={id} className={state.activeTab===id?"on":""} onClick={()=>setState(s=>({...s,activeTab:id==="tasks"?"home":id}))}>
+      <Icon size={22}/><span>{label}</span>
+    </button>)}
+  </nav>
+}
+
+function App(){
+  const [state,setState]=useState(loadState);
+  const [openDream,setOpenDream]=useState(null);
+  useEffect(()=>saveState(state),[state]);
+  let view;
+  if(state.activeTab==="avatar") view=<AvatarPicker state={state} setState={setState}/>;
+  else if(state.activeTab==="plant") view=<PlantWizard state={state} setState={setState}/>;
+  else if(state.activeTab==="gallery") view=<Gallery state={state} setState={setState}/>;
+  else if(state.activeTab==="settings") view=<Settings state={state} setState={setState}/>;
+  else if(openDream) view=<TaskView state={state} setState={setState} dreamId={openDream}/>;
+  else if(state.activeTab==="store") view=<StoreSoon setState={setState}/>;
+  else view=<Garden state={state} setState={setState} onPlant={()=>setState(s=>({...s,activeTab:"plant"}))} onOpenDream={setOpenDream}/>;
+  return <div className="phone-shell">
+    {React.cloneElement(view, {key:state.activeTab})}
+    {!["plant","avatar","settings"].includes(state.activeTab) && !openDream && <BottomNav state={state} setState={setState}/>}
+    {openDream && <button className="floating-back" onClick={()=>setOpenDream(null)}><X size={20}/></button>}
+  </div>
+}
+function StoreSoon({setState}){
+  return <main className="screen plain-screen"><SubHeader title="ร้านค้าเมล็ดพันธุ์" onBack={()=>setState(s=>({...s,activeTab:"home"}))}/><section className="card summary-card"><img src={A+"pot-planted.png"}/><h2>Seed Store</h2><p>พื้นที่สำหรับ Skin, Seed Packet และของตกแต่งสวนในอนาคต</p></section></main>
+}
+
+createRoot(document.getElementById("root")).render(<App/>);
