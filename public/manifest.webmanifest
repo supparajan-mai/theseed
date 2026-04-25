@@ -1,0 +1,13 @@
+{
+  "name": "THE SEED",
+  "short_name": "THE SEED",
+  "description": "Living Action Plan App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8eddc",
+  "theme_color": "#7d8f55",
+  "icons": [
+    { "src": "/icons/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
